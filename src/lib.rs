@@ -17,7 +17,7 @@ pub struct DBHandler {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
 pub struct Key {
-    pub id: String,
+    pub id: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
@@ -53,7 +53,9 @@ impl DBHandler {
 
 pub async fn overview_handler(State(db_handler): State<Arc<DBHandler>>) -> impl IntoResponse {
     match db_handler.get_all_initial_post_keys().await {
-        Ok(online_keys) => Json(json!({"count": online_keys.len(), "keys": online_keys})),
+        Ok(online_keys) => Json(
+            json!({"count": online_keys.len(), "keys": online_keys.into_iter().map(|key|hex::encode(key.id)).collect::<Vec<String>>()}),
+        ),
         Err(e) => {
             error!("failed to get overview statistics {:?}", e);
             Json(json!({"count": 0, "keys": []}))

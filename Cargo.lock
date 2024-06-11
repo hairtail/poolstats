@@ -1226,6 +1226,7 @@ dependencies = [
  "axum",
  "clap",
  "env_logger",
+ "hex",
  "log",
  "serde",
  "serde_json",
