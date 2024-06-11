@@ -24,6 +24,12 @@ pub struct Key {
 pub struct Registeration {
     pub address: String,
     pub round_id: String,
+    pub round_end: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetRegisterationsRequest {
+    pub node_id: String,
 }
 
 impl DBHandler {
@@ -44,7 +50,7 @@ impl DBHandler {
     ) -> Result<Vec<Registeration>, sqlx::Error> {
         let result =
             sqlx::query_as("SELECT address, round_id FROM poet_registration where id = $1")
-                .bind(node_id)
+                .bind(hex::decode(node_id).unwrap())
                 .fetch_all(&self.local)
                 .await?;
         Ok(result)
@@ -65,9 +71,9 @@ pub async fn overview_handler(State(db_handler): State<Arc<DBHandler>>) -> impl 
 
 pub async fn registerations_handler(
     State(db_handler): State<Arc<DBHandler>>,
-    extract::Json(node_id): extract::Json<String>,
+    extract::Json(req): extract::Json<GetRegisterationsRequest>,
 ) -> impl IntoResponse {
-    match db_handler.get_registerations_by_id(node_id).await {
+    match db_handler.get_registerations_by_id(req.node_id).await {
         Ok(registerations) => {
             Json(json!({"count": registerations.len(), "registerations": registerations}))
         }
