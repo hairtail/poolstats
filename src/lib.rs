@@ -48,11 +48,12 @@ impl DBHandler {
         &self,
         node_id: String,
     ) -> Result<Vec<Registeration>, sqlx::Error> {
-        let result =
-            sqlx::query_as("SELECT address, round_id FROM poet_registration where id = $1")
-                .bind(hex::decode(node_id).unwrap())
-                .fetch_all(&self.local)
-                .await?;
+        let result = sqlx::query_as(
+            "SELECT address, round_id, round_end FROM poet_registration where id = $1",
+        )
+        .bind(hex::decode(node_id).unwrap())
+        .fetch_all(&self.local)
+        .await?;
         Ok(result)
     }
 }
