@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{FromRow, Pool, Sqlite};
@@ -53,7 +54,10 @@ impl DBHandler {
 pub async fn overview_handler(State(db_handler): State<Arc<DBHandler>>) -> impl IntoResponse {
     match db_handler.get_all_initial_post_keys().await {
         Ok(online_keys) => Json(json!({"count": online_keys.len(), "keys": online_keys})),
-        Err(_) => Json(json!({"count": 0, "keys": []})),
+        Err(e) => {
+            error!("failed to get overview statistics {:?}", e);
+            Json(json!({"count": 0, "keys": []}))
+        }
     }
 }
 
@@ -65,6 +69,9 @@ pub async fn registerations_handler(
         Ok(registerations) => {
             Json(json!({"count": registerations.len(), "registerations": registerations}))
         }
-        Err(_) => Json(json!({"count": 0, "registerations": []})),
+        Err(e) => {
+            error!("failed to get registerations {:?}", e);
+            Json(json!({"count": 0, "registerations": []}))
+        }
     }
 }

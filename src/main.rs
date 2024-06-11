@@ -30,7 +30,10 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
+    let env = env_logger::Env::default().filter_or("RUST_LOG", "debug");
+    env_logger::init_from_env(env);
     let args = Cli::parse();
+    info!("{:?}", args);
     let db = SqlitePool::connect_lazy(&args.db)?;
     let local = SqlitePool::connect_lazy(&args.local)?;
 
