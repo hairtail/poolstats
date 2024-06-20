@@ -9,7 +9,7 @@ edition = "2021"
 serde = { version = "1.0.203", features = ["derive"] }
 tokio = { version = "1.38.0", features = ["full"] }
 log = "0.4.17"
-clap = { version = "4.4.11", features = ["derive"] }
+clap = { version = "4.4.11", features = ["derive", "string"] }
 env_logger = "0.11.1"
 tower = { version = "0.4.13", features = ["timeout"] }
 tower-http = { version = "0.5.0", features = ["cors"] }
@@ -17,3 +17,5 @@ axum = { version = "0.7.3", features = ["macros"] }
 sqlx = { version = "0.7.4", features = ["runtime-tokio-rustls", "sqlite"] }
 serde_json = "1.0.117"
 hex = "0.4.3"
+ureq = { version = "2.9.1", features = ["json"] }
+anyhow = "1.0.86"

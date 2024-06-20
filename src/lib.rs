@@ -1,86 +1,38 @@
 use std::sync::Arc;
 
-use axum::{
-    extract::{self, State},
-    response::IntoResponse,
-    Json,
-};
-use log::error;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use sqlx::{FromRow, Pool, Sqlite};
+pub mod chain;
+pub mod poolstats;
+pub mod rpc;
+
+use rpc::RpcHandler;
+use sqlx::{Pool, Sqlite};
 
 pub struct DBHandler {
-    pub db: Pool<Sqlite>,
+    pub chain: Pool<Sqlite>,
     pub local: Pool<Sqlite>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
-pub struct Key {
-    pub id: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
-pub struct Registeration {
-    pub address: String,
-    pub round_id: String,
-    pub round_end: u32,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GetRegisterationsRequest {
-    pub node_id: String,
+    pub poolstats: Pool<Sqlite>,
 }
 
 impl DBHandler {
-    pub fn new(db: Pool<Sqlite>, local: Pool<Sqlite>) -> Arc<Self> {
-        Arc::new(Self { db, local })
-    }
-
-    pub async fn get_all_initial_post_keys(&self) -> Result<Vec<Key>, sqlx::Error> {
-        let result = sqlx::query_as("SELECT id FROM initial_post")
-            .fetch_all(&self.local)
-            .await?;
-        Ok(result)
-    }
-
-    pub async fn get_registerations_by_id(
-        &self,
-        node_id: String,
-    ) -> Result<Vec<Registeration>, sqlx::Error> {
-        let result = sqlx::query_as(
-            "SELECT address, round_id, round_end FROM poet_registration where id = $1",
-        )
-        .bind(hex::decode(node_id).unwrap())
-        .fetch_all(&self.local)
-        .await?;
-        Ok(result)
-    }
-}
-
-pub async fn overview_handler(State(db_handler): State<Arc<DBHandler>>) -> impl IntoResponse {
-    match db_handler.get_all_initial_post_keys().await {
-        Ok(online_keys) => Json(
-            json!({"count": online_keys.len(), "keys": online_keys.into_iter().map(|key|hex::encode(key.id)).collect::<Vec<String>>()}),
-        ),
-        Err(e) => {
-            error!("failed to get overview statistics {:?}", e);
-            Json(json!({"count": 0, "keys": []}))
+    pub fn new(chain: Pool<Sqlite>, local: Pool<Sqlite>, poolstats: Pool<Sqlite>) -> Self {
+        Self {
+            chain,
+            local,
+            poolstats,
         }
     }
 }
 
-pub async fn registerations_handler(
-    State(db_handler): State<Arc<DBHandler>>,
-    extract::Json(req): extract::Json<GetRegisterationsRequest>,
-) -> impl IntoResponse {
-    match db_handler.get_registerations_by_id(req.node_id).await {
-        Ok(registerations) => {
-            Json(json!({"count": registerations.len(), "registerations": registerations}))
-        }
-        Err(e) => {
-            error!("failed to get registerations {:?}", e);
-            Json(json!({"count": 0, "registerations": []}))
-        }
+pub struct Shared {
+    pub db_handler: DBHandler,
+    pub rpc_handler: RpcHandler,
+}
+
+impl Shared {
+    pub fn new(db_handler: DBHandler, rpc_handler: RpcHandler) -> Arc<Self> {
+        Arc::new(Self {
+            db_handler,
+            rpc_handler,
+        })
     }
 }
