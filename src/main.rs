@@ -55,7 +55,7 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
-    let env = env_logger::Env::default().filter_or("RUST_LOG", "debug");
+    let env = env_logger::Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
     let args = Cli::parse();
     info!("{:?}", args);

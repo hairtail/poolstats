@@ -118,7 +118,7 @@ impl DBHandler {
         atx: AtxInfo,
     ) -> Result<(), sqlx::Error> {
         let _ = sqlx::query(
-            "INSERT INTO atxs (id, epoch, effective_num_units, coinbase, atx_id, num_unit) VALUES ($1, $2, $3, $4, $5, %6)",
+            "INSERT INTO atxs (id, epoch, effective_num_units, coinbase, atx_id, num_unit) VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(id)
         .bind(atx.epoch)
