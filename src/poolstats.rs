@@ -151,12 +151,11 @@ impl DBHandler {
     }
 
     pub async fn count_registered(&self, round_id: String) -> Result<i64, sqlx::Error> {
-        let result = sqlx::query_scalar(
-            "SELECT COUNT (*) FROM poet_registration WHERE round_id = $1 GROUP BY id",
-        )
-        .bind(round_id)
-        .fetch_one(&self.poolstats)
-        .await?;
+        let result =
+            sqlx::query_scalar("SELECT COUNT (*) FROM poet_registration WHERE round_id = $1")
+                .bind(round_id)
+                .fetch_one(&self.poolstats)
+                .await?;
         Ok(result)
     }
 

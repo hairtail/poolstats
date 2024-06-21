@@ -12,10 +12,35 @@ struct InnerKey {
     pub num_units: i64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
+pub struct InnerAtxInfo {
+    pub epoch: i64,
+    pub atx_id: Vec<u8>,
+    pub effective_num_units: i64,
+    pub coinbase: String,
+}
+
+impl InnerAtxInfo {
+    pub fn to_atx(self) -> AtxInfo {
+        let InnerAtxInfo {
+            epoch,
+            atx_id,
+            effective_num_units,
+            coinbase,
+        } = self;
+        AtxInfo {
+            atx_id: hex::encode(atx_id),
+            effective_num_units,
+            epoch,
+            coinbase,
+        }
+    }
+}
+
 impl DBHandler {
     pub async fn get_init_keys(&self, limit: i64, offset: i64) -> Result<Vec<Key>, sqlx::Error> {
         let result: Vec<InnerKey> =
-            sqlx::query_as("SELECT id FROM initial_post LIMIT $1 OFFSET $2")
+            sqlx::query_as("SELECT id, num_units FROM initial_post LIMIT $1 OFFSET $2")
                 .bind(limit)
                 .bind(offset)
                 .fetch_all(&self.local)
@@ -64,13 +89,13 @@ impl DBHandler {
         id: String,
         epoch: i64,
     ) -> Result<AtxInfo, sqlx::Error> {
-        let result = sqlx::query_as(
-            "SELECT epoch, id as atx_id, effective_num_units, coinbase FROM atxs WHERE pubkey = $1 AND epoch = $2",
+        let result = sqlx::query_as::<_, InnerAtxInfo>(
+            "SELECT epoch, id AS atx_id, effective_num_units, coinbase FROM atxs WHERE pubkey = $1 AND epoch = $2",
         )
         .bind(hex::decode(id).unwrap())
         .bind(epoch)
         .fetch_one(&self.chain)
         .await?;
-        Ok(result)
+        Ok(result.to_atx())
     }
 }

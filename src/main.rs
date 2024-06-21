@@ -107,6 +107,7 @@ async fn main() -> Result<(), sqlx::Error> {
                     .get_init_keys(limit, group.start)
                     .await
                 {
+                    info!("init posted keys {:?}", keys);
                     for Key { id, num_units } in keys {
                         match fetch_resource
                             .db_handler
@@ -132,7 +133,9 @@ async fn main() -> Result<(), sqlx::Error> {
                                     .save_atx(id.clone(), num_units, atx)
                                     .await;
                             }
-                            Err(_) => {}
+                            Err(e) => {
+                                log::error!("{:?}", e)
+                            }
                         }
                     }
                 }
