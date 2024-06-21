@@ -17,7 +17,7 @@ pub struct InnerAtxInfo {
     pub epoch: i64,
     pub atx_id: Vec<u8>,
     pub effective_num_units: i64,
-    pub coinbase: String,
+    pub coinbase: Vec<u8>,
 }
 
 impl InnerAtxInfo {
@@ -32,7 +32,7 @@ impl InnerAtxInfo {
             atx_id: hex::encode(atx_id),
             effective_num_units,
             epoch,
-            coinbase,
+            coinbase: hex::encode(coinbase),
         }
     }
 }
