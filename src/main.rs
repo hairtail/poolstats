@@ -115,6 +115,9 @@ async fn main() -> Result<(), sqlx::Error> {
                             .await
                         {
                             Ok(registerations) => {
+                                if registerations.is_empty() {
+                                    continue;
+                                }
                                 let _ = fetch_resource
                                     .db_handler
                                     .save_poet(id.clone(), num_units, registerations[0].clone())

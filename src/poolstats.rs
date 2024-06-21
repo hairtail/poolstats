@@ -38,10 +38,16 @@ pub struct AtxInfo {
     pub coinbase: String,
 }
 
+impl AtxInfo {
+    pub fn empty(&self) -> bool {
+        self.epoch == 0
+    }
+}
+
 impl Default for AtxInfo {
     fn default() -> Self {
         Self {
-            epoch: Default::default(),
+            epoch: 0,
             atx_id: Default::default(),
             effective_num_units: 0,
             coinbase: Default::default(),
