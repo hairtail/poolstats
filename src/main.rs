@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::{cmp, ops::Range, path::PathBuf, time::Duration};
 
 use axum::{
     error_handling::HandleErrorLayer,
@@ -9,17 +9,28 @@ use axum::{
 use clap::Parser;
 use log::info;
 use poolstats::{
-    poolstats::{get_nodes_info, overview_handler},
+    poolstats::{get_nodes_info, overview_handler, Key},
     rpc::RpcHandler,
     DBHandler, Shared,
 };
 use sqlx::{migrate::MigrateDatabase, Sqlite, SqlitePool};
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, time::sleep};
 use tower::{timeout::TimeoutLayer, ServiceBuilder};
 use tower_http::cors::{Any, CorsLayer};
 
 fn get_default_db_path() -> PathBuf {
     std::env::current_dir().unwrap()
+}
+
+fn get_range(input: Range<i64>, batch: i64) -> Vec<Range<i64>> {
+    let end = input.end;
+    let mut result = vec![];
+    for group in input.step_by(batch as usize) {
+        let start = group;
+        let end = cmp::min(start + batch - 1, end);
+        result.push(start..end)
+    }
+    result
 }
 
 #[derive(Parser, Debug)]
@@ -63,6 +74,72 @@ async fn main() -> Result<(), sqlx::Error> {
     let rpc_handler = RpcHandler::new(args.node);
 
     let shared = Shared::new(db_handler, rpc_handler);
+
+    let fetch_resource = shared.clone();
+
+    tokio::spawn(async move {
+        loop {
+            let epoch_info = fetch_resource
+                .rpc_handler
+                .get_epoch()
+                .unwrap()
+                .epochnum
+                .number;
+            let mut round_id = (epoch_info - 1).to_string();
+            let current_layer = fetch_resource
+                .rpc_handler
+                .get_layer()
+                .unwrap()
+                .layernum
+                .number;
+            if current_layer >= epoch_info * 4032 + 2880 {
+                round_id = epoch_info.to_string();
+            }
+            let count = fetch_resource
+                .db_handler
+                .count_initialzed()
+                .await
+                .unwrap_or(0);
+            let limit = 50;
+            for group in get_range(0..count, limit) {
+                if let Ok(keys) = fetch_resource
+                    .db_handler
+                    .get_init_keys(limit, group.start)
+                    .await
+                {
+                    for Key { id, num_units } in keys {
+                        match fetch_resource
+                            .db_handler
+                            .get_chain_registerations_by_id(id.clone(), round_id.clone())
+                            .await
+                        {
+                            Ok(registerations) => {
+                                let _ = fetch_resource
+                                    .db_handler
+                                    .save_poet(id.clone(), num_units, registerations[0].clone())
+                                    .await;
+                            }
+                            Err(_) => {}
+                        }
+                        match fetch_resource
+                            .db_handler
+                            .get_chain_atxs_by_id(id.clone(), epoch_info)
+                            .await
+                        {
+                            Ok(atx) => {
+                                let _ = fetch_resource
+                                    .db_handler
+                                    .save_atx(id.clone(), num_units, atx)
+                                    .await;
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                }
+            }
+            sleep(Duration::from_secs(24 * 60 * 60)).await;
+        }
+    });
 
     let router = Router::new()
         .route("/overview", get(overview_handler))

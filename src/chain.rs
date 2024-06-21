@@ -9,6 +9,7 @@ use crate::{
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
 struct InnerKey {
     pub id: Vec<u8>,
+    pub num_units: i64,
 }
 
 impl DBHandler {
@@ -23,6 +24,7 @@ impl DBHandler {
             .into_iter()
             .map(|k| Key {
                 id: hex::encode(k.id),
+                num_units: k.num_units,
             })
             .collect();
         Ok(result)
@@ -42,18 +44,7 @@ impl DBHandler {
         Ok(result)
     }
 
-    pub async fn get_atxs_by_id(&self, id: String, epoch: i64) -> Result<AtxInfo, sqlx::Error> {
-        let result = sqlx::query_as(
-            "SELECT epoch, id as atx_id, effective_num_units FROM atxs WHERE pubkey = $1 AND epoch = $2",
-        )
-        .bind(hex::decode(id).unwrap())
-        .bind(epoch)
-        .fetch_one(&self.chain)
-        .await?;
-        Ok(result)
-    }
-
-    pub async fn get_registerations_by_id(
+    pub async fn get_chain_registerations_by_id(
         &self,
         id: String,
         round_id: String,
@@ -64,6 +55,21 @@ impl DBHandler {
         .bind(hex::decode(id).unwrap())
         .bind(round_id)
         .fetch_all(&self.local)
+        .await?;
+        Ok(result)
+    }
+
+    pub async fn get_chain_atxs_by_id(
+        &self,
+        id: String,
+        epoch: i64,
+    ) -> Result<AtxInfo, sqlx::Error> {
+        let result = sqlx::query_as(
+            "SELECT epoch, id as atx_id, effective_num_units, coinbase FROM atxs WHERE pubkey = $1 AND epoch = $2",
+        )
+        .bind(hex::decode(id).unwrap())
+        .bind(epoch)
+        .fetch_one(&self.chain)
         .await?;
         Ok(result)
     }

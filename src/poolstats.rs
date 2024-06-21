@@ -20,6 +20,7 @@ pub struct GeneralRequest {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
 pub struct Key {
     pub id: String,
+    pub num_units: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, FromRow)]
@@ -34,6 +35,7 @@ pub struct AtxInfo {
     pub epoch: i64,
     pub atx_id: String,
     pub effective_num_units: i64,
+    pub coinbase: String,
 }
 
 impl Default for AtxInfo {
@@ -42,6 +44,7 @@ impl Default for AtxInfo {
             epoch: Default::default(),
             atx_id: Default::default(),
             effective_num_units: 0,
+            coinbase: Default::default(),
         }
     }
 }
@@ -49,14 +52,16 @@ impl Default for AtxInfo {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct NodeInfo {
     pub id: String,
+    pub num_units: i64,
     pub registerations: Vec<Registeration>,
     pub atx: AtxInfo,
 }
 
 impl NodeInfo {
-    fn new(id: String, registerations: Vec<Registeration>, atx: AtxInfo) -> Self {
+    fn new(id: String, num_units: i64, registerations: Vec<Registeration>, atx: AtxInfo) -> Self {
         Self {
             id,
+            num_units,
             registerations,
             atx,
         }
@@ -89,6 +94,45 @@ impl IntoResponse for Overview {
 }
 
 impl DBHandler {
+    pub async fn save_poet(
+        &self,
+        id: String,
+        num_unit: i64,
+        poet: Registeration,
+    ) -> Result<(), sqlx::Error> {
+        let _ = sqlx::query(
+            "INSERT INTO poet_registration (id, round_id, num_unit) VALUES ($1, $2, $3)",
+        )
+        .bind(id)
+        .bind(poet.round_id)
+        .bind(num_unit)
+        .fetch_one(&self.poolstats)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn save_atx(
+        &self,
+        id: String,
+        num_unit: i64,
+        atx: AtxInfo,
+    ) -> Result<(), sqlx::Error> {
+        let _ = sqlx::query(
+            "INSERT INTO atxs (id, epoch, effective_num_units, coinbase, atx_id, num_unit) VALUES ($1, $2, $3, $4, $5, %6)",
+        )
+        .bind(id)
+        .bind(atx.epoch)
+        .bind(atx.effective_num_units)
+        .bind(atx.coinbase)
+        .bind(atx.atx_id)
+        .bind(num_unit)
+        .fetch_one(&self.poolstats)
+        .await?;
+        Ok(())
+    }
+}
+
+impl DBHandler {
     pub async fn count_activated(&self, epoch: i64) -> Result<i64, sqlx::Error> {
         let result = sqlx::query_scalar("SELECT COUNT (*) FROM atxs WHERE epoch = $1")
             .bind(epoch)
@@ -98,10 +142,11 @@ impl DBHandler {
     }
 
     pub async fn actived_num_units(&self, epoch: i64) -> Result<i64, sqlx::Error> {
-        let result = sqlx::query_scalar("SELECT SUM (num_unit) FROM atxs WHERE epoch = $1")
-            .bind(epoch)
-            .fetch_one(&self.poolstats)
-            .await?;
+        let result =
+            sqlx::query_scalar("SELECT SUM (effective_num_units) FROM atxs WHERE epoch = $1")
+                .bind(epoch)
+                .fetch_one(&self.poolstats)
+                .await?;
         Ok(result)
     }
 
@@ -116,10 +161,20 @@ impl DBHandler {
     }
 
     pub async fn registered_num_units(&self, round_id: String) -> Result<i64, sqlx::Error> {
-        let result = sqlx::query_scalar(
-            "SELECT SUM (num_unit) FROM registrations WHERE round_id = $1 GROUP BY id",
+        let result =
+            sqlx::query_scalar("SELECT SUM (num_unit) FROM poet_registration WHERE round_id = $1")
+                .bind(round_id)
+                .fetch_one(&self.poolstats)
+                .await?;
+        Ok(result)
+    }
+
+    pub async fn get_atxs_by_id(&self, id: String, epoch: i64) -> Result<AtxInfo, sqlx::Error> {
+        let result = sqlx::query_as(
+            "SELECT epoch, atx_id, effective_num_units, coinbase FROM atxs WHERE id = $1 AND epoch = $2",
         )
-        .bind(round_id)
+        .bind(hex::decode(id).unwrap())
+        .bind(epoch)
         .fetch_one(&self.poolstats)
         .await?;
         Ok(result)
@@ -182,10 +237,10 @@ pub async fn get_nodes_info(
     if current_layer >= epoch_info * 4032 + 2880 {
         round_id = epoch_info.to_string();
     }
-    for Key { id } in ids {
-        let registers = shared
+    for Key { id, num_units } in ids {
+        let registerations = shared
             .db_handler
-            .get_registerations_by_id(id.clone(), round_id.clone())
+            .get_chain_registerations_by_id(id.clone(), round_id.clone())
             .await
             .unwrap_or(vec![]);
         let atx = shared
@@ -193,7 +248,7 @@ pub async fn get_nodes_info(
             .get_atxs_by_id(id.clone(), epoch_info)
             .await
             .unwrap_or(AtxInfo::default());
-        result.push(NodeInfo::new(id, registers, atx));
+        result.push(NodeInfo::new(id, num_units, registerations, atx));
     }
     Json(json!({"code": 200, "data": json!({"data": result})})).into_response()
 }
