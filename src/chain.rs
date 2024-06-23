@@ -40,7 +40,7 @@ impl InnerAtxInfo {
 impl DBHandler {
     pub async fn get_init_keys(&self, limit: i64, offset: i64) -> Result<Vec<Key>, sqlx::Error> {
         let result: Vec<InnerKey> =
-            sqlx::query_as("SELECT id, num_units FROM initial_post LIMIT $1 OFFSET $2")
+            sqlx::query_as("SELECT id, num_units FROM post LIMIT $1 OFFSET $2")
                 .bind(limit)
                 .bind(offset)
                 .fetch_all(&self.local)
@@ -56,14 +56,14 @@ impl DBHandler {
     }
 
     pub async fn count_initialzed(&self) -> Result<i64, sqlx::Error> {
-        let result = sqlx::query_scalar("SELECT COUNT (*) FROM initial_post")
+        let result = sqlx::query_scalar("SELECT COUNT (*) FROM post")
             .fetch_one(&self.local)
             .await?;
         Ok(result)
     }
 
     pub async fn inited_num_units(&self) -> Result<i64, sqlx::Error> {
-        let result = sqlx::query_scalar("SELECT SUM (num_units) FROM initial_post")
+        let result = sqlx::query_scalar("SELECT SUM (num_units) FROM post")
             .fetch_one(&self.local)
             .await?;
         Ok(result)
