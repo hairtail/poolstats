@@ -85,7 +85,9 @@ async fn main() -> Result<(), sqlx::Error> {
                 .unwrap()
                 .epochnum
                 .number;
-            let mut round_id = (epoch_info - 1).to_string();
+            let round_id = (epoch_info - 1).to_string();
+            let mut next_round = None;
+            let mut next_epoch = None;
             let current_layer = fetch_resource
                 .rpc_handler
                 .get_layer()
@@ -93,7 +95,8 @@ async fn main() -> Result<(), sqlx::Error> {
                 .layernum
                 .number;
             if current_layer >= epoch_info * 4032 + 2880 {
-                round_id = epoch_info.to_string();
+                next_round = Some(epoch_info.to_string());
+                next_epoch = Some((epoch_info + 1).to_string());
             }
             let count = fetch_resource
                 .db_handler
@@ -140,10 +143,47 @@ async fn main() -> Result<(), sqlx::Error> {
                                 log::error!("{:?}", e)
                             }
                         }
+
+                        if let Some(round_id) = next_round.clone() {
+                            match fetch_resource
+                                .db_handler
+                                .get_chain_registerations_by_id(id.clone(), round_id.clone())
+                                .await
+                            {
+                                Ok(registerations) => {
+                                    if registerations.is_empty() {
+                                        continue;
+                                    }
+                                    let _ = fetch_resource
+                                        .db_handler
+                                        .save_poet(id.clone(), num_units, registerations[0].clone())
+                                        .await;
+                                }
+                                Err(_) => {}
+                            }
+                        }
+
+                        if let Some(epoch) = next_epoch.clone() {
+                            match fetch_resource
+                                .db_handler
+                                .get_chain_atxs_by_id(id.clone(), epoch.parse().unwrap())
+                                .await
+                            {
+                                Ok(atx) => {
+                                    let _ = fetch_resource
+                                        .db_handler
+                                        .save_atx(id.clone(), num_units, atx)
+                                        .await;
+                                }
+                                Err(e) => {
+                                    log::error!("{:?}", e)
+                                }
+                            }
+                        }
                     }
                 }
             }
-            sleep(Duration::from_secs(24 * 60 * 60)).await;
+            sleep(Duration::from_secs(30 * 60)).await;
         }
     });
 

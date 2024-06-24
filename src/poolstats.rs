@@ -87,10 +87,16 @@ impl Item {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct GeneralItem {
+    pub current: Item,
+    pub next: Item,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Overview {
     pub init_posted: Item,
-    pub registerd: Item,
-    pub actived: Item,
+    pub registerd: GeneralItem,
+    pub actived: GeneralItem,
 }
 
 impl IntoResponse for Overview {
@@ -191,11 +197,7 @@ pub async fn overview_handler(State(shared): State<Arc<Shared>>) -> impl IntoRes
     let init_posted_num_units = shared.db_handler.inited_num_units().await.unwrap_or(0);
 
     let epoch_info = shared.rpc_handler.get_epoch().unwrap().epochnum.number;
-    let mut round_id = (epoch_info - 1).to_string();
-    let current_layer = shared.rpc_handler.get_layer().unwrap().layernum.number;
-    if current_layer >= epoch_info * 4032 + 2880 {
-        round_id = epoch_info.to_string();
-    }
+    let round_id = (epoch_info - 1).to_string();
 
     let registed_count = shared
         .db_handler
@@ -205,6 +207,18 @@ pub async fn overview_handler(State(shared): State<Arc<Shared>>) -> impl IntoRes
     let registed_num_units = shared
         .db_handler
         .registered_num_units(round_id.clone())
+        .await
+        .unwrap_or(0);
+
+    let next_round_id = epoch_info.to_string();
+    let next_registed_count = shared
+        .db_handler
+        .count_registered(next_round_id.clone())
+        .await
+        .unwrap_or(0);
+    let next_registed_num_units = shared
+        .db_handler
+        .registered_num_units(next_round_id.clone())
         .await
         .unwrap_or(0);
 
@@ -218,10 +232,27 @@ pub async fn overview_handler(State(shared): State<Arc<Shared>>) -> impl IntoRes
         .actived_num_units(epoch_info)
         .await
         .unwrap_or(0);
+
+    let next_actived_count = shared
+        .db_handler
+        .count_activated(epoch_info + 1)
+        .await
+        .unwrap_or(0);
+    let next_actived_num_units = shared
+        .db_handler
+        .actived_num_units(epoch_info + 1)
+        .await
+        .unwrap_or(0);
     Overview {
         init_posted: Item::new(init_posted_count, init_posted_num_units),
-        registerd: Item::new(registed_count, registed_num_units),
-        actived: Item::new(actived_count, actived_num_units),
+        registerd: GeneralItem {
+            current: Item::new(registed_count, registed_num_units),
+            next: Item::new(next_registed_count, next_registed_num_units),
+        },
+        actived: GeneralItem {
+            current: Item::new(actived_count, actived_num_units),
+            next: Item::new(next_actived_count, next_actived_num_units),
+        },
     }
 }
 
