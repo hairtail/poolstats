@@ -224,23 +224,23 @@ pub async fn overview_handler(State(shared): State<Arc<Shared>>) -> impl IntoRes
 
     let actived_count = shared
         .db_handler
-        .count_activated(epoch_info)
+        .count_activated(epoch_info - 1)
         .await
         .unwrap_or(0);
     let actived_num_units = shared
         .db_handler
-        .actived_num_units(epoch_info)
+        .actived_num_units(epoch_info - 1)
         .await
         .unwrap_or(0);
 
     let next_actived_count = shared
         .db_handler
-        .count_activated(epoch_info + 1)
+        .count_activated(epoch_info)
         .await
         .unwrap_or(0);
     let next_actived_num_units = shared
         .db_handler
-        .actived_num_units(epoch_info + 1)
+        .actived_num_units(epoch_info)
         .await
         .unwrap_or(0);
     Overview {
@@ -281,7 +281,7 @@ pub async fn get_nodes_info(
             .unwrap_or(vec![]);
         let atx = shared
             .db_handler
-            .get_atxs_by_id(id.clone(), epoch_info)
+            .get_atxs_by_id(id.clone(), epoch_info - 1)
             .await
             .unwrap_or(AtxInfo::default());
         result.push(NodeInfo::new(id, num_units, registerations, atx));

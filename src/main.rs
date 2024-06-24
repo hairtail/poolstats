@@ -96,7 +96,7 @@ async fn main() -> Result<(), sqlx::Error> {
                 .number;
             if current_layer >= epoch_info * 4032 + 2880 {
                 next_round = Some(epoch_info.to_string());
-                next_epoch = Some((epoch_info + 1).to_string());
+                next_epoch = Some(epoch_info);
             }
             let count = fetch_resource
                 .db_handler
@@ -130,7 +130,7 @@ async fn main() -> Result<(), sqlx::Error> {
                         }
                         match fetch_resource
                             .db_handler
-                            .get_chain_atxs_by_id(id.clone(), epoch_info)
+                            .get_chain_atxs_by_id(id.clone(), epoch_info - 1)
                             .await
                         {
                             Ok(atx) => {
@@ -166,7 +166,7 @@ async fn main() -> Result<(), sqlx::Error> {
                         if let Some(epoch) = next_epoch.clone() {
                             match fetch_resource
                                 .db_handler
-                                .get_chain_atxs_by_id(id.clone(), epoch.parse().unwrap())
+                                .get_chain_atxs_by_id(id.clone(), epoch)
                                 .await
                             {
                                 Ok(atx) => {
