@@ -286,5 +286,6 @@ pub async fn get_nodes_info(
             .unwrap_or(AtxInfo::default());
         result.push(NodeInfo::new(id, num_units, registerations, atx));
     }
-    Json(json!({"code": 200, "data": json!({"data": result})})).into_response()
+    let total = shared.db_handler.count_initialzed().await.unwrap_or(0);
+    Json(json!({"code": 200, "data": json!({"total": total, "data": result})})).into_response()
 }
