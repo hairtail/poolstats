@@ -94,7 +94,7 @@ async fn main() -> Result<(), sqlx::Error> {
                 .unwrap()
                 .layernum
                 .number;
-            if current_layer >= epoch_info * 4032 + 2880 {
+            if current_layer >= epoch_info * 4032 + 2760 {
                 next_round = Some(epoch_info.to_string());
                 next_epoch = Some(epoch_info);
             }

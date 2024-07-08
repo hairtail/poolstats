@@ -270,7 +270,7 @@ pub async fn get_nodes_info(
     let epoch_info = shared.rpc_handler.get_epoch().unwrap().epochnum.number;
     let mut round_id = (epoch_info - 1).to_string();
     let current_layer = shared.rpc_handler.get_layer().unwrap().layernum.number;
-    if current_layer >= epoch_info * 4032 + 2880 {
+    if current_layer >= epoch_info * 4032 + 2760 {
         round_id = epoch_info.to_string();
     }
     for Key { id, num_units } in ids {
